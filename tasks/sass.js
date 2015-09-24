@@ -1,6 +1,7 @@
 'use strict';
 var path = require('path');
 var os = require('os');
+var fs = require('fs');
 var dargs = require('dargs');
 var async = require('async');
 var chalk = require('chalk');
@@ -58,6 +59,13 @@ module.exports = function (grunt) {
         file.dest
       ].concat(passedArgs);
 
+      var sourcemapDest = '';
+      if (options.sourcemapDest) {
+        grunt.verbose.writeln('Source map destination was passed');
+        sourcemapDest = options.sourcemapDest;
+        args.splice(args.indexOf('--sourcemap-dest'), 2);
+      }
+
       if (options.update) {
         // When the source file hasn't yet been compiled SASS will write an empty file.
         // If this is the first time the file has been written we treat it as if `update` was not passed
@@ -99,6 +107,25 @@ module.exports = function (grunt) {
           grunt.warn('Exited with error code ' + code);
           next();
           return;
+        }
+
+        if(options.sourcemap && options.sourcemap!='none' && options.sourcemapDest) {
+            var mapPath = file.dest + '.map';
+            var newPath = path.join(sourcemapDest, path.basename(file.dest) + '.map');
+            var stats = fs.lstatSync(mapPath);
+            if(!stats.isFile()) {
+                grunt.verbose.writeln('The map file does not exist: ' + mapPath);
+                grunt.verbose.writeln('Skipping moving the file to source map destination' + sourcemapDest);
+            } else {
+              grunt.verbose.writeln('Moving "'+ mapPath + '" to "' + newPath);
+
+              // Make sure grunt creates the destination folders if they don't exist
+              if (!grunt.file.exists(newPath)) {
+                  grunt.file.write(newPath, '');
+              }
+
+              fs.rename(mapPath, newPath);
+            }
         }
 
         grunt.verbose.writeln('File ' + chalk.cyan(file.dest) + ' created');
